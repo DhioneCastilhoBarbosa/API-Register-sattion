@@ -14,7 +14,8 @@
 *.dylib
 *.test
 *.out
-api
+# só o binário na raiz (não ignorar cmd/api/)
+/api
 
 # Dependências / cache Go
 vendor/

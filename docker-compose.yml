@@ -5,7 +5,9 @@ services:
     container_name: cve-registration-api
     restart: unless-stopped
     ports:
-      # Host e container usam o mesmo PORT do .env (ex.: 8084)
+      # Host e container usam o mesmo PORT (Dokploy Environment ou .env local)
       - "${PORT:-8080}:${PORT:-8080}"
+    # .env local é opcional; no Dokploy as vars vêm da aba Environment
     env_file:
-      - .env
+      - path: .env
+        required: false
