@@ -5,9 +5,17 @@ services:
     container_name: cve-registration-api
     restart: unless-stopped
     ports:
-      # Host e container usam o mesmo PORT (Dokploy Environment ou .env local)
       - "${PORT:-8080}:${PORT:-8080}"
-    # .env local é opcional; no Dokploy as vars vêm da aba Environment
-    env_file:
-      - path: .env
-        required: false
+    # Dokploy injeta estas vars na aba Environment (ou use .env local).
+    environment:
+      PORT: ${PORT:-8080}
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL é obrigatória}
+      CVE_BASE_URL: ${CVE_BASE_URL:-https://cs-test.intelbras-cve-pro.com.br}
+      CVE_API_KEY: ${CVE_API_KEY:?CVE_API_KEY é obrigatória}
+      CVE_LOGIN_EMAIL: ${CVE_LOGIN_EMAIL:?CVE_LOGIN_EMAIL é obrigatória}
+      CVE_LOGIN_PASSWORD: ${CVE_LOGIN_PASSWORD:?CVE_LOGIN_PASSWORD é obrigatória}
+      CVE_TENANT_PK: ${CVE_TENANT_PK:?CVE_TENANT_PK é obrigatória}
+      LICENSE_BASE_URL: ${LICENSE_BASE_URL:-https://api-licenca.intelbras-cve-pro.com.br}
+      LICENSE_LOGIN_EMAIL: ${LICENSE_LOGIN_EMAIL:?LICENSE_LOGIN_EMAIL é obrigatória}
+      LICENSE_LOGIN_PASSWORD: ${LICENSE_LOGIN_PASSWORD:?LICENSE_LOGIN_PASSWORD é obrigatória}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET é obrigatória}

@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"log"
 	"net/http"
+	"net/url"
 
 	_ "github.com/lib/pq"
 
@@ -30,9 +31,11 @@ func main() {
 	}
 	defer db.Close()
 
+	log.Printf("conectando no Postgres em %s", databaseHost(cfg.DatabaseURL))
 	if err := db.Ping(); err != nil {
 		log.Fatalf("erro ao conectar no Postgres: %v", err)
 	}
+	log.Printf("Postgres OK")
 
 	if err := migrate.Up(db, migrations.FS); err != nil {
 		log.Fatalf("erro ao aplicar migrations: %v", err)
@@ -62,7 +65,16 @@ func main() {
 	mux.HandleFunc("GET /registrations", authHandler.RequireAuth(registrationHandler.Search))
 
 	log.Printf("subindo na porta %s", cfg.Port)
-	if err := http.ListenAndServe(":"+cfg.Port, mux); err != nil {
+	if err := http.ListenAndServe(":"+cfg.Port, handler.CORS(mux)); err != nil {
 		log.Fatalf("erro ao subir servidor: %v", err)
 	}
+}
+
+// databaseHost devolve host:porta (sem senha) para log de diagnóstico.
+func databaseHost(dsn string) string {
+	u, err := url.Parse(dsn)
+	if err != nil || u.Host == "" {
+		return "(host inválido)"
+	}
+	return u.Host
 }
