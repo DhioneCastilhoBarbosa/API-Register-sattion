@@ -1,0 +1,48 @@
+# Ambiente / segredos
+.env
+.env.*
+!.env.example
+
+# Binários / build
+/bin/
+/dist/
+/out/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+api
+
+# Dependências / cache Go
+vendor/
+*.sum.bak
+
+# IDE / editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.cursor/
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Logs / temporários
+*.log
+tmp/
+temp/
+*.tmp
+
+# Coverage / testes
+coverage.out
+coverage.html
+*.coverprofile
+
+# Docker (volumes locais, se houver)
+postgres_data/

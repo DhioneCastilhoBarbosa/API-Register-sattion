@@ -1,0 +1,13 @@
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+docker-compose*.yml
+README.md
+postman
+*.md
+tmp
+**/*_test.go
+agent-transcripts
+.cursor

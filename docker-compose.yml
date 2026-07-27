@@ -1,0 +1,11 @@
+services:
+  api:
+    build: .
+    image: cve-registration-api:latest
+    container_name: cve-registration-api
+    restart: unless-stopped
+    ports:
+      # Host e container usam o mesmo PORT do .env (ex.: 8084)
+      - "${PORT:-8080}:${PORT:-8080}"
+    env_file:
+      - .env
