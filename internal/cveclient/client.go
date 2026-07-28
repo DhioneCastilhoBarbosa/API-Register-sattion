@@ -88,9 +88,13 @@ func (c *Client) login(ctx context.Context) error {
 }
 
 // do executa a requisição já com Authorization, relogando uma vez em caso
-// de 401. Não envia Platform: DASHBOARD — com a conta de API isso retorna 401
-// em /users_data e /chargepoints.
+// de 401. Não envia Platform por padrão — Platform: DASHBOARD com a conta
+// de API retorna 401 em /users_data e /chargepoints.
 func (c *Client) do(ctx context.Context, method, path string, body []byte) (*http.Response, error) {
+	return c.doWithPlatform(ctx, method, path, body, "")
+}
+
+func (c *Client) doWithPlatform(ctx context.Context, method, path string, body []byte, platform string) (*http.Response, error) {
 	c.mu.Lock()
 	token := c.token
 	c.mu.Unlock()
@@ -115,6 +119,9 @@ func (c *Client) do(ctx context.Context, method, path string, body []byte) (*htt
 		}
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Authorization", tok)
+		if platform != "" {
+			req.Header.Set("Platform", platform)
+		}
 		return c.httpClient.Do(req)
 	}
 
@@ -342,8 +349,9 @@ func (c *Client) FindUserPkByEmail(ctx context.Context, email string) (int, erro
 }
 
 // FindUserByCPF consulta GET /api/v1/users_data/tenant_parent/cpf/{cpf}.
-// Se a rota da CVE falhar, faz fallback em users_data?docNumber= filtrando
-// o CPF exato (a conta de API às vezes toma 500 em tenant_parent).
+// A conta de API precisa de Platform: MOBILE (ou TERMINAL) nessa rota —
+// sem Platform a CVE responde 500; com DASHBOARD responde 401.
+// Se falhar, faz fallback em users_data filtrando docNumber.
 func (c *Client) FindUserByCPF(ctx context.Context, cpf string) (*domain.UserPrivateStation, error) {
 	cpf = digitsOnly(cpf)
 	if len(cpf) < 11 {
@@ -351,7 +359,7 @@ func (c *Client) FindUserByCPF(ctx context.Context, cpf string) (*domain.UserPri
 	}
 
 	path := "/api/v1/users_data/tenant_parent/cpf/" + url.PathEscape(cpf)
-	resp, err := c.do(ctx, http.MethodGet, path, nil)
+	resp, err := c.doWithPlatform(ctx, http.MethodGet, path, nil, "MOBILE")
 	if err != nil {
 		return nil, err
 	}
