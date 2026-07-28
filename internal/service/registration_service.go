@@ -4,14 +4,13 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	"cve-registration-api/internal/domain"
 )
 
 type CVEClient interface {
 	CreateChargepoint(ctx context.Context, form domain.ChargePointRestForm) error
-	FindChargeBoxPk(ctx context.Context, chargeBoxID string) (int, error)
+	FindChargeBoxPkByFilter(ctx context.Context, chargeBoxID string) (int, error)
 	UserExists(ctx context.Context, email string) (bool, error)
 	FindUserPkByEmail(ctx context.Context, email string) (int, error)
 	FindUserByCPF(ctx context.Context, cpf string) (*domain.UserPrivateStation, error)
@@ -140,10 +139,11 @@ func (s *RegistrationService) Register(ctx context.Context, form domain.Registra
 		return reg, s.fail(ctx, reg, err)
 	}
 
-	// chargeBoxPk é opcional: PRIVATE na CVE responde 202/200 mas às vezes
-	// não aparece na listagem da conta de API. O cadastro já foi aceito.
+	// chargeBoxPk é opcional e não deve atrasar a resposta: a CVE aceita o
+	// create (202) antes de indexar na listagem — PRIVATE quase nunca aparece
+	// na conta de API. Uma busca rápida, sem retry nem varredura ampla.
 	var chargeBoxPkPtr *int
-	if pk, err := s.findChargeBoxPkWithRetry(ctx, form.SerialNumber); err == nil {
+	if pk, err := s.cve.FindChargeBoxPkByFilter(ctx, form.SerialNumber); err == nil {
 		chargeBoxPkPtr = &pk
 		reg.CVEChargeBoxPk = chargeBoxPkPtr
 	}
@@ -251,27 +251,6 @@ func (s *RegistrationService) resolveBindUsers(ctx context.Context, form domain.
 		bindUsers[0].Owner = true
 	}
 	return bindUsers, nil
-}
-
-func (s *RegistrationService) findChargeBoxPkWithRetry(ctx context.Context, chargeBoxID string) (int, error) {
-	var lastErr error
-	delays := []time.Duration{0, 500 * time.Millisecond, 1 * time.Second, 2 * time.Second, 3 * time.Second}
-	for i, wait := range delays {
-		if wait > 0 {
-			select {
-			case <-ctx.Done():
-				return 0, ctx.Err()
-			case <-time.After(wait):
-			}
-		}
-		pk, err := s.cve.FindChargeBoxPk(ctx, chargeBoxID)
-		if err == nil {
-			return pk, nil
-		}
-		lastErr = err
-		_ = i
-	}
-	return 0, lastErr
 }
 
 func (s *RegistrationService) resolveLicense(ctx context.Context, form domain.RegistrationForm) (*domain.License, error) {

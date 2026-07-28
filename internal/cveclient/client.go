@@ -174,6 +174,7 @@ func chargepointCreateError(chargeBoxID string, status int, body []byte) string 
 	var errResp domain.ErrorRestResponse
 	_ = json.Unmarshal(body, &errResp)
 	msg := strings.ToLower(errResp.Error)
+	raw := strings.ToLower(string(body))
 
 	switch {
 	case strings.Contains(msg, "failed to update"),
@@ -181,11 +182,50 @@ func chargepointCreateError(chargeBoxID string, status int, body []byte) string 
 		strings.Contains(msg, "already exists"),
 		strings.Contains(msg, "já existe"):
 		return fmt.Sprintf("carregador com número de série %q já está cadastrado", chargeBoxID)
+	case status == http.StatusServiceUnavailable || strings.Contains(raw, "503") || strings.Contains(raw, "<html"):
+		return "cadastro do chargepoint falhou: API CVE-PRO indisponível (503). Verifique CVE_BASE_URL no ambiente e se o servidor de produção consegue acessar a CVE"
 	case errResp.Error != "":
 		return fmt.Sprintf("cadastro do chargepoint falhou: %s", errResp.Error)
 	default:
-		return fmt.Sprintf("cadastro do chargepoint falhou (status %d): %s", status, string(body))
+		return fmt.Sprintf("cadastro do chargepoint falhou (status %d): %s", status, truncateForError(string(body), 200))
 	}
+}
+
+func truncateForError(s string, max int) string {
+	s = strings.TrimSpace(s)
+	if len(s) <= max {
+		return s
+	}
+	return s[:max] + "..."
+}
+
+// FindChargeBoxPkByFilter busca o chargeBoxPk só pelo filtro chargeBoxId=,
+// sem varrer a listagem ampla (rápido; usado após create sem bloquear resposta).
+func (c *Client) FindChargeBoxPkByFilter(ctx context.Context, chargeBoxID string) (int, error) {
+	path := "/api/v1/chargepoints?" + url.Values{"chargeBoxId": {chargeBoxID}}.Encode()
+
+	resp, err := c.do(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return 0, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		return 0, fmt.Errorf("busca do chargepoint falhou (status %d): %s", resp.StatusCode, string(b))
+	}
+
+	var listResp domain.ChargePointListRestResponse
+	if err := json.NewDecoder(resp.Body).Decode(&listResp); err != nil {
+		return 0, err
+	}
+	for _, item := range listResp.ChargePointList {
+		if item.ChargeBoxID == chargeBoxID {
+			return item.ChargeBoxPk, nil
+		}
+	}
+
+	return 0, fmt.Errorf("nenhum chargepoint encontrado com chargeBoxId %q", chargeBoxID)
 }
 
 // FindChargeBoxPk busca o chargeBoxPk pelo chargeBoxId (número de série).
